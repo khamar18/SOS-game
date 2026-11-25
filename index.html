@@ -1,0 +1,305 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SOS Game</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #141e30, #263b5e);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .game {
+            background: #1e293b;
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            width: 400px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+        }
+
+        h1 {
+            color: #38bdf8;
+            margin-bottom: 10px;
+        }
+
+        .scoreboard {
+            display: flex;
+            justify-content: space-around;
+            margin: 20px 0;
+            font-size: 18px;
+        }
+
+        .player {
+            background: #334155;
+            padding: 12px;
+            border-radius: 10px;
+        }
+
+        .active {
+            border: 2px solid #38bdf8;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+        }
+
+        .controls button {
+            padding: 12px 25px;
+            margin: 5px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .letter {
+            background: #38bdf8;
+            color: #0f172a;
+        }
+
+        .letter.selected {
+            background: #facc15;
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            margin: 20px auto;
+        }
+
+        .cell {
+            width: 58px;
+            height: 58px;
+            background: #334155;
+            border-radius: 10px;
+            font-size: 26px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: 0.2s;
+        }
+
+        .cell:hover {
+            background: #475569;
+            transform: scale(1.05);
+        }
+
+        .cell.filled {
+            cursor: not-allowed;
+            background: #0ea5e9;
+        }
+
+        #status {
+            margin: 15px 0;
+            font-size: 16px;
+            color: #cbd5e1;
+        }
+
+        #restart {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        #restart:hover {
+            background: #dc2626;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="game">
+    <h1>🎮 SOS GAME</h1>
+
+    <div class="scoreboard">
+        <div class="player active" id="player1">
+            Player 1<br>
+            <span id="score1">0</span>
+        </div>
+
+        <div class="player" id="player2">
+            Player 2<br>
+            <span id="score2">0</span>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="letter selected" onclick="selectLetter('S')">S</button>
+        <button class="letter" onclick="selectLetter('O')">O</button>
+    </div>
+
+    <p id="status">Player 1's turn — Select S or O</p>
+
+    <div class="board" id="board"></div>
+
+    <button id="restart" onclick="restartGame()">Restart Game</button>
+</div>
+
+<script>
+    const board = document.getElementById("board");
+
+    let currentPlayer = 1;
+    let selectedLetter = "S";
+    let scores = [0, 0];
+    let cells = Array(25).fill("");
+
+    // Create board
+    function createBoard() {
+        board.innerHTML = "";
+
+        for (let i = 0; i < 25; i++) {
+            const cell = document.createElement("div");
+            cell.classList.add("cell");
+            cell.addEventListener("click", () => playMove(i));
+            board.appendChild(cell);
+        }
+    }
+
+    // Select S or O
+    function selectLetter(letter) {
+        selectedLetter = letter;
+
+        document.querySelectorAll(".letter").forEach(btn => {
+            btn.classList.remove("selected");
+        });
+
+        event.target.classList.add("selected");
+    }
+
+    // Play move
+    function playMove(index) {
+        if (cells[index] !== "") return;
+
+        cells[index] = selectedLetter;
+
+        const cell = board.children[index];
+        cell.textContent = selectedLetter;
+        cell.classList.add("filled");
+
+        const newSOS = checkSOS(index);
+
+        if (newSOS > 0) {
+            scores[currentPlayer - 1] += newSOS;
+
+            document.getElementById("score1").textContent = scores[0];
+            document.getElementById("score2").textContent = scores[1];
+
+            document.getElementById("status").textContent =
+                `Player ${currentPlayer} scored ${newSOS} point(s)! Play again.`;
+        } else {
+            currentPlayer = currentPlayer === 1 ? 2 : 1;
+
+            document.getElementById("status").textContent =
+                `Player ${currentPlayer}'s turn`;
+        }
+
+        updatePlayers();
+
+        if (!cells.includes("")) {
+            const winner = scores[0] > scores[1]
+                ? "Player 1 Wins!"
+                : scores[1] > scores[0]
+                ? "Player 2 Wins!"
+                : "It's a Draw!";
+
+            document.getElementById("status").textContent =
+                `Game Over — ${winner}`;
+        }
+    }
+
+    // Check SOS sequences
+    function checkSOS(index) {
+        const row = Math.floor(index / 5);
+        const col = index % 5;
+        let count = 0;
+
+        const directions = [
+            [0, 1],   // Horizontal
+            [1, 0],   // Vertical
+            [1, 1],    // Diagonal
+            [1, -1]    // Reverse diagonal
+        ];
+
+        for (const [dr, dc] of directions) {
+            for (let offset = -2; offset <= 0; offset++) {
+                let positions = [];
+
+                for (let j = 0; j < 3; j++) {
+                    const r = row + (offset + j) * dr;
+                    const c = col + (offset + j) * dc;
+
+                    if (r >= 0 && r < 5 && c >= 0 && c < 5) {
+                        positions.push(r * 5 + c);
+                    }
+                }
+
+                if (positions.length === 3) {
+                    const word = positions.map(p => cells[p]).join("");
+
+                    if (word === "SOS" && positions.includes(index)) {
+                        count++;
+                    }
+                }
+            }
+        }
+
+        return count;
+    }
+
+    // Update active player
+    function updatePlayers() {
+        document.getElementById("player1").classList.toggle(
+            "active", currentPlayer === 1
+        );
+
+        document.getElementById("player2").classList.toggle(
+            "active", currentPlayer === 2
+        );
+    }
+
+    // Restart
+    function restartGame() {
+        currentPlayer = 1;
+        selectedLetter = "S";
+        scores = [0, 0];
+        cells = Array(25).fill("");
+
+        document.getElementById("score1").textContent = 0;
+        document.getElementById("score2").textContent = 0;
+        document.getElementById("status").textContent =
+            "Player 1's turn — Select S or O";
+
+        updatePlayers();
+        createBoard();
+    }
+
+    createBoard();
+</script>
+
+</body>
+</html>
+```
